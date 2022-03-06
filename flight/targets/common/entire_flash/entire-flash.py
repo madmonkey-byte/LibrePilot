@@ -80,10 +80,7 @@ def main():
     class RawDescriptionHelpFormatter(optparse.IndentedHelpFormatter):
         """optparse formatter function to pretty print raw epilog"""
         def format_epilog(self, epilog):
-            if epilog:
-                return "\n" + epilog + "\n"
-            else:
-                return ""
+            return "\n" + epilog + "\n" if epilog else ""
 
     parser = optparse.OptionParser(
         formatter=RawDescriptionHelpFormatter(),

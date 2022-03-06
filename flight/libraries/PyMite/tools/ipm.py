@@ -25,6 +25,7 @@ The target device then packages any result, sends it to the host computer
 and the host computer prints the result.
 """
 
+
 ## @file
 #  @copybrief ipm_host
 
@@ -89,10 +90,7 @@ Type Ctrl+C to interrupt and Ctrl+D to quit (or Ctrl+Z <enter> on Win32).
 
 REPLY_TERMINATOR = '\x04'
 
-if sys.platform.lower().startswith("win"):
-    EOF_KEY = 'Z'
-else:
-    EOF_KEY = 'D'
+EOF_KEY = 'Z' if sys.platform.lower().startswith("win") else 'D'
 
 
 class Connection(object):
@@ -136,8 +134,7 @@ class PipeConnection(Connection):
                 #print "DEBUG: child returncode = %s\n" % hex(self.child.poll())
                 break
             chars.append(c)
-        msg = "".join(chars)
-        return msg
+        return "".join(chars)
 
 
     def write(self, msg):

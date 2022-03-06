@@ -41,10 +41,8 @@ def dismantle_file(fn):
     """Dismantles the .py file, fn. Returns the root code object.
     """
 
-    #create a code object
-    f = open(fn)
-    source = f.read()
-    f.close()
+    with open(fn) as f:
+        source = f.read()
     return dismantle(source, fn)
 
 

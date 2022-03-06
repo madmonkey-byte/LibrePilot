@@ -65,10 +65,7 @@ except:
 def _ellipse(string, length):
     """Truncates a string to a given size with ellipses
     """
-    if len(string) < length:
-        return string
-    else:
-        return string[0 : length-3] + '...'
+    return string if len(string) < length else string[:length-3] + '...'
 
 
 def _dot_escape(string):
@@ -81,11 +78,10 @@ def unpack_fp(fmt, fp, increment=True):
 
     if increment:
         return struct.unpack(fmt, fp.read(struct.calcsize(fmt)))
-    else:
-        pos = fp.tell()
-        ret = struct.unpack(fmt, fp.read(struct.calcsize(fmt)))
-        fp.seek(pos)
-        return ret
+    pos = fp.tell()
+    ret = struct.unpack(fmt, fp.read(struct.calcsize(fmt)))
+    fp.seek(pos)
+    return ret
 
 
 PmFieldInfo = collections.namedtuple('PmFieldInfo', 'name type mul')
@@ -144,7 +140,7 @@ class PmTypeInfo(object):
                 self._rawfields.append(f)
                 continue
 
-            if bitfield == None:
+            if bitfield is None:
                 bitfield = []
 
             bitfield.append(f)
@@ -154,7 +150,7 @@ class PmTypeInfo(object):
                 continue
 
             # Last bit in field : sum the bitfield and add it to the fields list
-            bitcount = sum([sf.mul for sf in bitfield])
+            bitcount = sum(sf.mul for sf in bitfield)
             bytes = 1
             while (bytes * 8 < bitcount):
                 bytes *= bytes
@@ -173,7 +169,7 @@ class PmTypeInfo(object):
         """
 
         d = obj.data
-        fmt = obj.heap.endianchr + "H" # Skip object descriptor
+        fmt = f'{obj.heap.endianchr}H'
         fieldmap = [None]
 
         for i, f in enumerate(self._rawfields):
@@ -279,7 +275,7 @@ def PmObjectClass(dumpversion, features):
             self.fp = fp = self.heap.rawheap
             self.addr = self.fp.tell()
 
-            od = unpack_fp(heap.endianchr + "H", fp, False)[0]
+            od = unpack_fp(f'{heap.endianchr}H', fp, False)[0]
             self.mark = (' ','M')[(od & 0x4000) == 0x4000]
             self.free = (' ','F')[(od & 0x8000) == 0x8000]
 
@@ -313,7 +309,7 @@ def PmObjectClass(dumpversion, features):
 
             # Store data in obj
             for r, f in zip(results, fieldmap):
-                if f == None:
+                if f is None:
                     continue
                 elif isinstance(f, PmBitfieldInfo):
                     for bf in f.fields:
@@ -344,19 +340,17 @@ def PmObjectClass(dumpversion, features):
         def __str__(self,):
 
             d = self.data
-            result = []
-            result.append("%s %s %d %s%s: " % (
+            result = [("%s %s %d %s%s: " % (
                 hex(self.addr+self.heap.base),
                 self.type,
                 self.size,
                 self.mark,
-                self.free,))
-
+                self.free,))]
             values = []
             for f in self.objtype.fields:
-                typechr = (f.type in ['P', '.']) and "0x%x" or "%d"
+                typechr = "0x%x" if f.type in ['P', '.'] else "%d"
                 if f.mul == False:
-                    values.append(("%s=" + typechr) % (f.name, d[f.name]))
+                    values.append(f"%s={typechr}" % (f.name, d[f.name]))
                 elif self.objtype.name == "STR" and f.name == "val":
                     values.append("val=%s"
                                   % _ellipse("".join(map(chr, d['val'])), 30))
@@ -410,13 +404,10 @@ def PmObjectClass(dumpversion, features):
                     self.heap.data[seg].is_dotrev = True
                     seg = self.heap.data[seg].data['next']
 
-            result = []
-
-            result.append('"0x%x" [style=filled, fillcolor=%s, colorscheme=svg,'
-                          ' label="%s"];'
-                          % (self.addr+self.heap.base,
+            result = [('"0x%x" [style=filled, fillcolor=%s, colorscheme=svg,'
+                          ' label="%s"];' % (self.addr+self.heap.base,
                              self.COLOR[getattr(self, 'typeindex', 0)],
-                             self._dot_label()))
+                             self._dot_label()))]
 
             if (self.type == "sgl" and d['rootseg'] in self.heap.data
                 and d['rootseg'] != d['lastseg']):
@@ -434,10 +425,7 @@ def PmObjectClass(dumpversion, features):
             """
 
             d = self.data
-            label = []
-            label.append('{')
-            label.append(_dot_escape(repr(self)))
-
+            label = ['{', _dot_escape(repr(self))]
             values = []
             for f in self.objtype.fields:
                 if f.type == 'P': continue
@@ -453,10 +441,7 @@ def PmObjectClass(dumpversion, features):
                     values.append("%s=%s"
                         % (_dot_escape(f.name), _dot_escape(str(d[f.name]))))
             if len(values):
-                label.append("|{")
-                label.append("|".join(values))
-                label.append("}")
-
+                label.extend(("|{", "|".join(values), "}"))
             pointers = []
             for f in self.objtype.fields:
                 if f.type != 'P':
@@ -466,9 +451,7 @@ def PmObjectClass(dumpversion, features):
                 else:
                     pointers.append("<%s> %s" % (f.name, f.name))
             if len(pointers):
-                label.append('|{')
-                label.append("|".join(pointers))
-                label.append('}')
+                label.extend(('|{', "|".join(pointers), '}'))
             label.append('}')
 
             return "".join(label)
@@ -491,10 +474,11 @@ def PmObjectClass(dumpversion, features):
                         continue
                     result.append(self._dotedge(f.name, d[f.name]))
                 else:
-                    for i, m in enumerate(d[f.name]):
-                        if m == 0:
-                            continue
-                        result.append(self._dotedge(f.name, m, str(i)))
+                    result.extend(
+                        self._dotedge(f.name, m, str(i))
+                        for i, m in enumerate(d[f.name])
+                        if m != 0
+                    )
 
             if self.type == "dic" and d['len'] > 0:
                 i = 0
@@ -554,8 +538,10 @@ class PmHeap(UserDict.UserDict):
         self.is_parsed = False
 
         self._sense_fmt(fp)
-        self.version, features, self.size, self.base = \
-            unpack_fp(self.endianchr + "2HI" + self.ptrchr, fp)
+        self.version, features, self.size, self.base = unpack_fp(
+            f'{self.endianchr}2HI{self.ptrchr}', fp
+        )
+
 
         if self.version != 1:
             raise Exception('Dump version %d not supported' % self.version)
@@ -565,11 +551,11 @@ class PmHeap(UserDict.UserDict):
                  (object,),
                  dict(zip(self.FEATURES, [False] * len(self.FEATURES))))()
         f = 0
-        while(features):
+        while features:
             setattr(self.features,
                     self.FEATURES[f],
                     features & 1 and True or False)
-            f = f + 1
+            f += 1
             features = features >> 1
 
         self.rawheap = StringIO.StringIO(fp.read(self.size))
@@ -609,10 +595,10 @@ class PmHeap(UserDict.UserDict):
         else:
             raise Exception("Not a PMDUMP format")
 
-        self.ptrsize = unpack_fp(self.endianchr+"H", fp)[0]
+        self.ptrsize = unpack_fp(f'{self.endianchr}H', fp)[0]
         self.ptrchr = [None, 'B', 'H', None, 'I',
                        None, None, None, 'Q'][self.ptrsize]
-        if self.ptrchr == None:
+        if self.ptrchr is None:
             raise Exception('invalid pointer size')
 
 
@@ -634,11 +620,9 @@ class PmHeap(UserDict.UserDict):
         if type(indx) == types.IntType:
             if is_parsed:
                 return self.data[indx]
-            else:
-                self.rawheap.seek(indx)
-                return self.PmObjectClass(self)
+            self.rawheap.seek(indx)
+            return self.PmObjectClass(self)
 
-        # Return the string of bytes defined by the slice
         elif type(indx) == types.SliceType:
             return self.rawheap[indx.start - self.base : indx.stop - self.base]
 
@@ -653,20 +637,27 @@ class PmHeap(UserDict.UserDict):
         obj = filter(lambda o: o.type != "fre", self.data.values())
         free = filter(lambda o: o.type == "fre", self.data.values())
 
-        result = []
-        result.append("dump : version=%d, ptr=%dbytes, %s-endian, features=%s"
-            % (self.version, self.ptrsize, self.endianess, self.features))
-        result.append("roots : "
-            + ", ".join(map(lambda kv: "%s=0x%x" % kv, self.roots.iteritems())))
+        result = [
+            (
+                "dump : version=%d, ptr=%dbytes, %s-endian, features=%s"
+                % (self.version, self.ptrsize, self.endianess, self.features)
+            ),
+            (
+                "roots : "
+                + ", ".join(map(lambda kv: "%s=0x%x" % kv, self.roots.iteritems()))
+            ),
+        ]
+
         result.append("heap : size=%d, base=%x" % (self.size, self.base))
-        result.append("summary : %d bytes in %d objects, %d free bytes" %
-                      (sum([o.size for o in obj]),
-                       len(obj),
-                       sum([o.size for o in free])))
+        result.append(
+            (
+                "summary : %d bytes in %d objects, %d free bytes"
+                % (sum(o.size for o in obj), len(obj), sum(o.size for o in free))
+            )
+        )
 
-        for o in sorted(d.values(), key=lambda o: o.addr):
-            result.append(str(o))
 
+        result.extend(str(o) for o in sorted(d.values(), key=lambda o: o.addr))
         result.append('')
 
         return "\n".join(result)
@@ -677,30 +668,15 @@ class PmHeap(UserDict.UserDict):
         """
 
         d = self.data
-        result = []
-        result.append("digraph pmheapdump {")
-        #result.append("concentrate=true;")
-
-        result.append('{ rank=same;')
-        for r, m in self.roots.iteritems():
-            result.append("%s;" % r)
-        result.append('}')
-
-        result.append("{ node [shape=record];")
-        for o in sorted(d.values(), key=lambda o: o.addr):
-            result.append(o.dotstring())
+        result = ["digraph pmheapdump {", '{ rank=same;']
+        result.extend("%s;" % r for r, m in self.roots.iteritems())
+        result.extend(('}', "{ node [shape=record];"))
+        result.extend(o.dotstring() for o in sorted(d.values(), key=lambda o: o.addr))
         result.append("}")
 
-        for r, m in self.roots.iteritems():
-            result.append('%s -> "0x%x";' % (r, m))
-
-        for o in sorted(d.values(), key=lambda o: o.addr):
-            result.append(o.dotedges())
-
-        result.append("}")
-
-        result.append('')
-
+        result.extend('%s -> "0x%x";' % (r, m) for r, m in self.roots.iteritems())
+        result.extend(o.dotedges() for o in sorted(d.values(), key=lambda o: o.addr))
+        result.extend(("}", ''))
         return "\n".join(filter(len, result))
 
 

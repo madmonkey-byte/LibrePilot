@@ -18,6 +18,7 @@ PyCscope
 PyCscope creates a Cscope-like index file for a tree of Python source.
 """
 
+
 ## @file
 #  @copybrief pycscope
 
@@ -57,7 +58,7 @@ MARK_GLOBAL = "\tg"
 MARK_FUNC_PARM = "\tp"
 
 # Reverse the key,value pairs in the token dict
-tok_name_lookup = dict((v,k) for k,v in token.tok_name.iteritems())
+tok_name_lookup = {v: k for k,v in token.tok_name.iteritems()}
 TOK_NEWLINE = tok_name_lookup["NEWLINE"]
 TOK_NAME = tok_name_lookup["NAME"]
 TOK_LPAR = tok_name_lookup["LPAR"]
@@ -66,7 +67,7 @@ TOK_INDENT = tok_name_lookup["INDENT"]
 TOK_DEDENT = tok_name_lookup["DEDENT"]
 
 # Reverse the key,value pairs in the symbol dict
-sym_name_lookup = dict((v,k) for k,v in symbol.sym_name.iteritems())
+sym_name_lookup = {v: k for k,v in symbol.sym_name.iteritems()}
 SYM_TRAILER = sym_name_lookup["trailer"]
 SYM_VARARGSLIST = sym_name_lookup["varargslist"]
 
@@ -206,7 +207,6 @@ def walkAst(astlist, indexbuff):
     if astlist[0] > 256:
         latestsymbol = astlist[0]
 
-    # Handle the tokens
     else:
         # Save the previous token and get the latest one
         prevtoken = latesttoken
@@ -268,20 +268,19 @@ def walkAst(astlist, indexbuff):
                 # Write out the keyword
                 indexbuff.append("%s " % kw)
 
-        # This set of tokens and symbols indicates a function call (not perfect)
-        elif (latesttoken == TOK_LPAR) and (prevtoken == TOK_NAME) and (
-            (latestsymbol == SYM_TRAILER) or (latestsymbol == SYM_VARARGSLIST)):
+        elif (
+            latesttoken == TOK_LPAR
+            and prevtoken == TOK_NAME
+            and latestsymbol in [SYM_TRAILER, SYM_VARARGSLIST]
+        ):
 
             # Insert a function-call mark before the previous name
             indexbuff[-1] = "\n%s%s( " % (MARK_FUNC_CALL, indexbuff[-1][1:])
 
-        # Count the number of indents; to be used by dedent
         elif latesttoken == TOK_INDENT:
             if infuncdef:
                 indentcount += 1
 
-        # When dedent reaches the level of the function def,
-        # write the function-end mark
         elif latesttoken == TOK_DEDENT:
             if infuncdef:
                 indentcount -= 1
@@ -290,13 +289,10 @@ def walkAst(astlist, indexbuff):
                     latestnewline += 1
                     infuncdef = False
 
-        # Replace the last line number placeholder with a newline
-        # when at the end of a file
         elif latesttoken == TOK_ENDMARKER:
             if len(indexbuff) > 0:
                 indexbuff[-1] = "\n"
 
-        # For uninteresting tokens, just write the accompanying string
         else:
             if len(astlist[1]) > 0:
                 nonsymboltext = astlist[1].replace("\n","\\n") + ' '
@@ -313,22 +309,20 @@ def walkAst(astlist, indexbuff):
 def writeIndex(basepath, indexfn, indexbuff, fnamesbuff):
     """Write the index buffer to the output file.
     """
-    fout = open(os.path.join(basepath, indexfn), 'w')
+    with open(os.path.join(basepath, indexfn), 'w') as fout:
+        # Write the header and index
+        index = ''.join(indexbuff)
+        index_len = len(index)
+        hdr_len = len(basepath) + 25
+        fout.write("cscope 15 %s -c %010d" % (basepath, hdr_len + index_len))
+        fout.write(index)
 
-    # Write the header and index
-    index = ''.join(indexbuff)
-    index_len = len(index)
-    hdr_len = len(basepath) + 25
-    fout.write("cscope 15 %s -c %010d" % (basepath, hdr_len + index_len))
-    fout.write(index)
-
-    # Write trailer info
-    fnames = '\n'.join(fnamesbuff) + '\n'
-    fout.write("\n1\n.\n0\n")
-    fout.write("%d\n" % len(fnamesbuff))
-    fout.write("%d\n" % len(fnames))
-    fout.write(fnames)
-    fout.close()
+        # Write trailer info
+        fnames = '\n'.join(fnamesbuff) + '\n'
+        fout.write("\n1\n.\n0\n")
+        fout.write("%d\n" % len(fnamesbuff))
+        fout.write("%d\n" % len(fnames))
+        fout.write(fnames)
 
 
 if __name__ == "__main__":

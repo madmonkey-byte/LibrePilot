@@ -19,10 +19,11 @@ def create_qml_file(args):
     with open(args.infile, "rt") as input_file:
         names = input_file.readlines()
 
-    names_list = ""
-    for name in names:
-        if name.strip():
-            names_list += "    ListElement { name: \"" + name.strip() + "\" }\r\n"
+    names_list = "".join(
+        "    ListElement { name: \"" + name.strip() + "\" }\r\n"
+        for name in names
+        if name.strip()
+    )
 
     with open(args.template, "rb") as template_file:
         template = template_file.read()

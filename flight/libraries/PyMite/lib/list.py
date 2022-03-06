@@ -44,11 +44,7 @@ def append(l, o):
 
 
 def count(l, v):
-    c = 0
-    for o in l:
-        if o == v:
-            c = c + 1
-    return c
+    return sum(o == v for o in l)
 
 
 def extend(l, s):
