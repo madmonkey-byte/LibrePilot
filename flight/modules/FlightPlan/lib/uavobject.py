@@ -89,16 +89,15 @@ class UAVObjectField:
 			if numElements == 1:
 				self.value = 0.0
 			else:
-				self.value = [] 
-				for n in range(0, numElements):
+				self.value = []
+				for _ in range(numElements):
 					append(self.value, 0.0)
-		else: 
-			if numElements == 1:
-				self.value = 0
-			else:
-				self.value = [] 
-				for n in range(0, numElements):
-					append(self.value, 0)
+		elif numElements == 1:
+			self.value = 0
+		else:
+			self.value = []
+			for _ in range(numElements):
+				append(self.value, 0)
 		  
 class UAVObject:
 	def __init__(self, objId):

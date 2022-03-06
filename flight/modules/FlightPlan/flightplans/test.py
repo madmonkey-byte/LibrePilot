@@ -16,17 +16,10 @@ import flightplanstatus
 #mb = sys.heap()
 #mb = mb[0]
 import mixersettings
-#ma = sys.heap()
-#ma = ma[0]
-#print('import mixersettings')
-#print(mb-ma)
-
-n = 0
 timenow = sys.time()
 fpStatus = flightplanstatus.FlightPlanStatus()
 
-while n < 120:
-	n = n+1 
+for n in range(1, 121):
 	#openpilot.debug(n, timenow)
 	fpStatus.read()
 	fpStatus.Debug.value[0] = n

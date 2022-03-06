@@ -75,7 +75,7 @@ class UAVObjectField(object):
         if self.ftype == UAVObjectField.FType.INT8:
             vfmt = "b"
             self.rawSizePerElem = 1
-        elif self.ftype == UAVObjectField.FType.UINT8 or self.ftype == UAVObjectField.FType.ENUM:
+        elif self.ftype in [UAVObjectField.FType.UINT8, UAVObjectField.FType.ENUM]:
             vfmt = "B"
             self.rawSizePerElem = 1
         elif self.ftype == UAVObjectField.FType.INT16:
@@ -100,16 +100,8 @@ class UAVObjectField(object):
 
         self.fmt = fmt
 
-        if ftype == UAVObjectField.FType.FLOAT32:
-            baseValue = 0.0
-        else:
-            baseValue = 0
-
-        if numElements == 1:
-            self.value = baseValue
-        else:
-            self.value = [baseValue] * numElements
-
+        baseValue = 0.0 if ftype == UAVObjectField.FType.FLOAT32 else 0
+        self.value = baseValue if numElements == 1 else [baseValue] * numElements
         self.rawSize = self.rawSizePerElem * self.numElements
 
     def getRawSize(self):
@@ -124,10 +116,7 @@ class UAVObjectField(object):
     def deserialize(self, data):
         # TODO: FIXME: This is getting very messy
         values = list(self.struct.unpack("".join(map(chr, data[:self.rawSize]))))
-        if self.numElements == 1:
-            self.value = values[0]
-        else:
-            self.value = values
+        self.value = values[0] if self.numElements == 1 else values
         return self.rawSize
 
 
@@ -165,10 +154,7 @@ class UAVObject(object):
         self.fields.append(field)
 
     def getSerialisedSize(self):
-        size = 0
-        for field in self.fields:
-            size += field.getRawSize()
-        return size
+        return sum(field.getRawSize() for field in self.fields)
 
     def serialize(self):
         ser = []
@@ -197,16 +183,15 @@ class UAVObject(object):
         return False
 
     def __str__(self):
-        if self.name != None:
-            if self.isMetaData():
-                return "%s" % self.name
-            else:
-                return "%s" % self.name
-        else:
-            if self.isMetaData():
-                return "UAVMetaObj of %08x" % (self.objId - 1)
-            else:
-                return "UAVObj %08x" % self.objId
+        if self.name is None:
+            return (
+                "UAVMetaObj of %08x" % (self.objId - 1)
+                if self.isMetaData()
+                else "UAVObj %08x" % self.objId
+            )
+
+        if self.isMetaData() or not self.isMetaData():
+            return "%s" % self.name
 
 
 #class UAVDataObject(UAVObject):
@@ -366,6 +351,20 @@ class UAVMetaDataObject(UAVObject):
         return True
 
     def __str__(self):
-        return str(self.objId) + " " + self.name + " [" + format(self.flags.value,'016b') + " " + \
-               str(self.telemetryUpdatePeriod.value) + " " + str(self.gcsTelemetryUpdatePeriod.value) + \
-               " " + str(self.loggingUpdatePeriod.value) + "]"
+        return (
+            (
+                (
+                    (
+                        f'{str(self.objId)} {self.name} ['
+                        + format(self.flags.value, '016b')
+                        + " "
+                        + str(self.telemetryUpdatePeriod.value)
+                    )
+                    + " "
+                )
+                + str(self.gcsTelemetryUpdatePeriod.value)
+                + " "
+            )
+            + str(self.loggingUpdatePeriod.value)
+            + "]"
+        )

@@ -39,7 +39,7 @@ class EigenMatrixPrinter:
 		
 		# Save the variety (presumably "Matrix" or "Array") for later usage
 		self.variety = variety
-		
+
 		# The gdb extension does not support value template arguments - need to extract them by hand
 		type = val.type
 		if type.code == gdb.TYPE_CODE_REF:
@@ -50,27 +50,27 @@ class EigenMatrixPrinter:
 		m = regex.findall(tag)[0][1:-1]
 		template_params = m.split(',')
 		template_params = [x.replace(" ", "") for x in template_params]
-		
-		if template_params[1] == '-0x00000000000000001' or template_params[1] == '-0x000000001' or template_params[1] == '-1':
+
+		if template_params[1] in ['-0x00000000000000001', '-0x000000001', '-1']:
 			self.rows = val['m_storage']['m_rows']
 		else:
 			self.rows = int(template_params[1])
-		
-		if template_params[2] == '-0x00000000000000001' or template_params[2] == '-0x000000001' or template_params[2] == '-1':
+
+		if template_params[2] in ['-0x00000000000000001', '-0x000000001', '-1']:
 			self.cols = val['m_storage']['m_cols']
 		else:
 			self.cols = int(template_params[2])
-		
+
 		self.options = 0 # default value
 		if len(template_params) > 3:
 			self.options = template_params[3];
-		
+
 		self.rowMajor = (int(self.options) & 0x1)
-		
+
 		self.innerType = self.type.template_argument(0)
-		
+
 		self.val = val
-		
+
 		# Fixed size matrices have a struct as their storage, so we need to walk through this
 		self.data = self.val['m_storage']['m_data']
 		if self.data.type.code == gdb.TYPE_CODE_STRUCT:
@@ -185,7 +185,7 @@ def build_eigen_dictionary ():
 def register_eigen_printers(obj):
 	"Register eigen pretty-printers with objfile Obj"
 
-	if obj == None:
+	if obj is None:
 		obj = gdb
 	obj.pretty_printers.append(lookup_function)
 
@@ -193,21 +193,21 @@ def lookup_function(val):
 	"Look-up and return a pretty-printer that can print va."
 	
 	type = val.type
-	
+
 	if type.code == gdb.TYPE_CODE_REF:
 		type = type.target()
-	
+
 	type = type.unqualified().strip_typedefs()
-	
+
 	typename = type.tag
-	if typename == None:
+	if typename is None:
 		return None
-	
-	for function in pretty_printers_dict:
-		if function.search(typename):
-			return pretty_printers_dict[function](val)
-	
-	return None
+
+	return next(
+	    (pretty_printers_dict[function](val)
+	     for function in pretty_printers_dict if function.search(typename)),
+	    None,
+	)
 
 pretty_printers_dict = {}
 

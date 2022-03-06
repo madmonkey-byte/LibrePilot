@@ -24,8 +24,10 @@ json.encoder.FLOAT_REPR = lambda o: format(o, '.17g')
 
 files = []
 for root, dirnames, filenames in os.walk('ground/gcs/src/share/vehicletemplates/'):
-  for filename in fnmatch.filter(filenames, '*.optmpl'):
-    files.append(os.path.join(root, filename))
+    files.extend(
+        os.path.join(root, filename)
+        for filename in fnmatch.filter(filenames, '*.optmpl')
+    )
 
 for f in files:
     data = json.load(open(f, 'r'), object_pairs_hook=collections.OrderedDict)

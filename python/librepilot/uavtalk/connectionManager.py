@@ -62,13 +62,10 @@ class ConnectionManager(object):
                     self.ftsObj.metadata.telemetryUpdatePeriod.value = 1000
                     self.ftsObj.metadata.updated()
                     self.objMan.regObjectObserver(self.ftsObj, self, "_onFtsChange")
-                else:
-                    pass
             except objectManager.TimeoutException:
                 timeout = True
                 self.connected = False
                 logging.warning("Connecting TO")
-                pass
         logging.debug("Connected in %.1fs" % (time.clock()-startTime))
 
 
@@ -98,8 +95,7 @@ class ConnectionManager(object):
         if self.connected:
             if not connected:
                 logging.warning("DISCONNECTED")
-        else:
-            if connected:
-                logging.debug("CONNECTED")
-        
+        elif connected:
+            logging.debug("CONNECTED")
+
         self.connected = connected

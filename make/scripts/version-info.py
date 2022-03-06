@@ -44,8 +44,14 @@ class Repo:
     def _exec(self, cmd):
         """Execute git using cmd as arguments"""
         self._git = 'git'
-        git = Popen(self._git + " " + cmd, cwd = self._path,
-                    shell = True, stdout = PIPE, stderr = PIPE)
+        git = Popen(
+            f'{self._git} {cmd}',
+            cwd=self._path,
+            shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+
         self._out, self._err = git.communicate()
         self._rc = git.poll()
 
@@ -54,8 +60,7 @@ class Repo:
         self._origin = None
         self._exec('remote -v')
         if self._rc == 0:
-            m = search(r"^origin\s+(.+)\s+\(fetch\)$", self._out, MULTILINE)
-            if m:
+            if m := search(r"^origin\s+(.+)\s+\(fetch\)$", self._out, MULTILINE):
                 self._origin = m.group(1)
 
     def _get_time(self):
@@ -84,8 +89,7 @@ class Repo:
         self._branch = None
         self._exec('branch --contains HEAD')
         if self._rc == 0:
-            m = search(r"^\*\s+(.+)$", self._out, MULTILINE)
-            if m:
+            if m := search(r"^\*\s+(.+)$", self._out, MULTILINE):
                 self._branch = m.group(1)
 
     def _get_dirty(self):
@@ -142,48 +146,35 @@ class Repo:
 
     def origin(self, none = None):
         """Return fetch origin of the repository"""
-        if self._origin == None:
-            return none
-        else:
-            return self._origin
+        return none if self._origin is None else self._origin
 
     def hash(self, n = 40, none = None):
         """Return hash of the HEAD commit"""
-        if self._hash == None:
-            return none
-        else:
-            return self._hash[:n]
+        return none if self._hash is None else self._hash[:n]
 
     def time(self, format = None, none = None):
         """Return Unix or formatted time of the HEAD commit"""
-        if self._time == None:
+        if self._time is None:
             return none
+        if format is None:
+            return self._time
         else:
-            if format == None:
-                return self._time
-            else:
-                return datetime.utcfromtimestamp(float(self._time)).strftime(format)
+            return datetime.utcfromtimestamp(float(self._time)).strftime(format)
 
     def tag(self, none = None):
         """Return git tag for the HEAD commit or given string if none"""
-        if self._last_tag == None or self._num_commits_past_tag != "0":
+        if self._last_tag is None or self._num_commits_past_tag != "0":
             return none
         else:
             return self._last_tag
 
     def branch(self, none = None):
         """Return git branch containing the HEAD or given string if none"""
-        if self._branch == None:
-            return none
-        else:
-            return self._branch
+        return none if self._branch is None else self._branch
 
     def dirty(self, dirty = "-dirty", clean = ""):
         """Return git repository dirty state or empty string"""
-        if self._dirty:
-            return dirty
-        else:
-            return clean
+        return dirty if self._dirty else clean
 
     def label(self):
         """Return package label (similar to git describe)"""
@@ -191,7 +182,12 @@ class Repo:
             if self._num_commits_past_tag == "0":
                 return self._last_tag + self.dirty()
             else:
-                return self._last_tag + "+r" + self._num_commits_past_tag + "-g" + self.hash(7, '') + self.dirty()
+                return (
+                    f'{self._last_tag}+r{self._num_commits_past_tag}-g'
+                    + self.hash(7, '')
+                    + self.dirty()
+                )
+
         except:
             return None
 
@@ -241,15 +237,15 @@ class Repo:
     def save_to_json(self, path):
         """Saves the repo data to version-info.json"""
 
-        json_data = dict()
-        json_data['hash'] = self._hash
-        json_data['origin'] = self._origin
-        json_data['time'] = self._time
-        json_data['last_tag'] = self._last_tag
-        json_data['num_commits_past_tag'] = self._num_commits_past_tag
-        json_data['branch'] = self._branch
-        # version-info.json is for use with git archive which doesn't take in dirty changes
-        json_data['dirty'] = False
+        json_data = {
+            'hash': self._hash,
+            'origin': self._origin,
+            'time': self._time,
+            'last_tag': self._last_tag,
+            'num_commits_past_tag': self._num_commits_past_tag,
+            'branch': self._branch,
+            'dirty': False,
+        }
 
         json_path = os.path.join(path, 'version-info.json')
 
@@ -263,18 +259,15 @@ def write_if_different(out_name, out):
     try:
         of = open(out_name, "rb")
     except IOError:
-        # No file - create new
-        of = open(out_name, "wb")
-        of.write(out)
-        of.close()
+        with open(out_name, "wb") as of:
+            of.write(out)
     else:
         # File exists - overwite only if content is different
         inp = of.read()
         of.close()
         if inp != out:
-            of = open(out_name, "wb")
-            of.write(out)
-            of.close()
+            with open(out_name, "wb") as of:
+                of.write(out)
 
 def escape_dict(dictionary):
     """Escapes dictionary values for C"""
@@ -313,11 +306,8 @@ def file_from_template(tpl_name, out_name, dictionary):
         file_from_template(tpl_name, out_name, dictionary)
     """
 
-    # Read template first
-    tf = open(tpl_name, "rb")
-    tpl = tf.read()
-    tf.close()
-
+    with open(tpl_name, "rb") as tf:
+        tpl = tf.read()
     # Replace placeholders using dictionary
     out = Template(tpl).substitute(dictionary)
 
@@ -326,15 +316,14 @@ def file_from_template(tpl_name, out_name, dictionary):
 
 def sha1(file):
     """Provides C source representation of sha1 sum of file"""
-    if file == None:
+    if file is None:
         return ""
-    else:
-        sha1 = hashlib.sha1()
-        with open(file, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), ''):
-                sha1.update(chunk)
-        hex_stream = lambda s:",".join(['0x'+hex(ord(c))[2:].zfill(2) for c in s])
-        return hex_stream(sha1.digest())
+    sha1 = hashlib.sha1()
+    with open(file, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), ''):
+            sha1.update(chunk)
+    hex_stream = lambda s: ",".join([f'0x{hex(ord(c))[2:].zfill(2)}' for c in s])
+    return hex_stream(sha1.digest())
 
 def xtrim(string, suffix, length):
     """Return string+suffix concatenated and trimmed up to length characters
@@ -345,10 +334,9 @@ def xtrim(string, suffix, length):
     """
     if len(string) + len(suffix) <= length:
         return ''.join([string, suffix])
-    else:
-        n = length - 1 - len(suffix)
-        assert n > 0, "length of truncated string+suffix exceeds maximum length"
-        return ''.join([string[:n], '+', suffix])
+    n = length - 1 - len(suffix)
+    assert n > 0, "length of truncated string+suffix exceeds maximum length"
+    return ''.join([string[:n], '+', suffix])
 
 def get_hash_of_dirs(directory, verbose = 0, raw = 0, n = 40):
     """Return hash of XML files from UAVObject definition directory"""
@@ -439,10 +427,7 @@ string given.
     class RawDescriptionHelpFormatter(optparse.IndentedHelpFormatter):
         """optparse formatter function to pretty print raw epilog"""
         def format_epilog(self, epilog):
-            if epilog:
-                return "\n" + epilog + "\n"
-            else:
-                return ""
+            return "\n" + epilog + "\n" if epilog else ""
 
     parser = optparse.OptionParser(
         formatter=RawDescriptionHelpFormatter(),

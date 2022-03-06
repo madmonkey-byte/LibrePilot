@@ -35,6 +35,7 @@ standard library or the user library--using the argument -s or -u,
 respectively.
 """
 
+
 ## @file
 #  @copybrief pmImgCreator
 
@@ -128,11 +129,7 @@ NATIVE_FUNC_PREFIX = "nat_"
 NATIVE_MAX_NUM_LOCALS = 8
 
 # Issue #51: In Python 2.5, the module identifier changed from '?' to '<module>'
-if float(sys.version[:3]) < 2.5:
-    MODULE_IDENTIFIER = "?"
-else:
-    MODULE_IDENTIFIER = "<module>"
-
+MODULE_IDENTIFIER = "?" if float(sys.version[:3]) < 2.5 else "<module>"
 # Old #152: Byte to append after the last image in the list
 IMG_LIST_TERMINATOR = "\xFF"
 
@@ -300,16 +297,14 @@ class PmImgCreator:
 
         # if creating usr lib, create placeholder in 0th index
         if self.imgtarget == "usr":
-            self.nativetable.append((NATIVE_FUNC_PREFIX + "placeholder_func",
-                                    "\n    /*\n"
+            self.nativetable.append((f'{NATIVE_FUNC_PREFIX}placeholder_func', "\n    /*\n"
                                     "     * Use placeholder because an index \n"
                                     "     * value of zero denotes the stdlib.\n"
                                     "     * This function should not be called.\n"
                                     "     */\n"
                                     "    PmReturn_t retval;\n"
                                     "    PM_RAISE(retval, PM_RET_EX_SYS);\n"
-                                    "    return retval;\n"
-                                   ))
+                                    "    return retval;\n"))
             self.nfcount = 1
         else:
             self.nfcount = 0
@@ -390,7 +385,6 @@ class PmImgCreator:
                 imgstr += _U8_to_str(OBJ_TYPE_STR) + \
                           self._U16_to_str(len(obj)) + obj
 
-            # if it is an integer
             elif objtype == types.IntType:
                 # marker, int (little endian)
                 imgstr += _U8_to_str(OBJ_TYPE_INT) + \
@@ -399,31 +393,28 @@ class PmImgCreator:
                           _U8_to_str((obj >> 16) & 0xff) + \
                           _U8_to_str((obj >> 24) & 0xff)
 
-            # if it is a code object
             elif objtype == types.CodeType:
                 #determine if it's native or regular
-                if (len(obj.co_consts) > 0 and
-                    (type(obj.co_consts[0]) == types.StringType) and
-                    (obj.co_consts[0][0:NATIVE_INDICATOR_LENGTH] ==
-                    NATIVE_INDICATOR)):
+                if (
+                    len(obj.co_consts) > 0
+                    and type(obj.co_consts[0]) == types.StringType
+                    and obj.co_consts[0][:NATIVE_INDICATOR_LENGTH]
+                    == NATIVE_INDICATOR
+                ):
                     imgstr += self.no_to_str(obj)
                 else:
                     imgstr += self.co_to_str(obj)
 
-            # if it is a tuple
             elif objtype == types.TupleType:
                 imgstr += self._seq_to_str(obj)
 
-            # if it is None
             elif objtype == types.NoneType:
                 # marker, none (0)
                 imgstr += _U8_to_str(OBJ_TYPE_NON)
 
-            # if it is a float
             elif objtype == types.FloatType and PM_FEATURES["HAVE_FLOAT"]:
                 imgstr += _U8_to_str(OBJ_TYPE_FLT) + self._float_to_str(obj)
 
-            # other type?
             else:
                 raise exceptions.NotImplementedError(
                           "Unhandled type %s." % objtype)
@@ -623,7 +614,7 @@ class PmImgCreator:
             c = ord(s[i])
 
             #ensure no illegal bytecodes are present
-            if self.bcodes[c] == None:
+            if self.bcodes[c] is None:
                 raise NotImplementedError(
                         "Illegal bytecode (%d/%s/%s) "
                         "comes at offset %d in file %s." %
@@ -654,7 +645,7 @@ class PmImgCreator:
                 i += 3
 
         # if the first const is a String,
-        if (len(consts) > 0 and type(consts[0]) == types.StringType):
+        if consts and type(consts[0]) == types.StringType:
 
             ## Native code filter
             # if this CO is intended to be a native func.
@@ -704,7 +695,7 @@ class PmImgCreator:
         names = list(co.co_names)
 
         # Remove __doc__ name if requested
-        if REMOVE_DOC_STR and len(names) > 0 and names[0] == "__doc__":
+        if REMOVE_DOC_STR and names and names[0] == "__doc__":
             names[0] = ''
 
         # if co_name is the module identifier change it to module name
@@ -726,18 +717,16 @@ class PmImgCreator:
         """Writes an image file
         """
         fmtfxn = self.formatFromExt[self.imgtype]
-        f = open(self.outfn, 'wb')
-        f.write(fmtfxn())
-        f.close()
+        with open(self.outfn, 'wb') as f:
+            f.write(fmtfxn())
 
     def write_native_file(self,):
         """Writes native functions if filename was given
         """
         if not self.nativeFilename:
             return
-        f = open(self.nativeFilename, 'wb')
-        f.write(self.format_native_table())
-        f.close()
+        with open(self.nativeFilename, 'wb') as f:
+            f.write(self.format_native_table())
 
 
     def format_img_as_bin(self,):
@@ -764,8 +753,7 @@ class PmImgCreator:
         imgs = self.imgDict["imgs"]
 
         # create intro
-        fileBuff = []
-        fileBuff.append("/**\n"
+        fileBuff = [("/**\n"
                         " * PyMite library image file.\n"
                         " *\n"
                         " * Automatically created from:\n"
@@ -779,13 +767,11 @@ class PmImgCreator:
                         " * \n"
                         " * DO NOT EDIT THIS FILE.\n"
                         " * ANY CHANGES WILL BE LOST.\n"
-                        " */\n\n"
-                        % (string.join(fns, "\n *\t"),
+                        " */\n\n" % (string.join(fns, "\n *\t"),
                            time.ctime(time.time()),
                            len(string.join(imgs, "")),
                            self.memspace.upper()
-                          )
-                       )
+                          ))]
         fileBuff.append("/* Place the image into %s */\n"
                         "#ifdef __cplusplus\n"
                         "extern\n"
@@ -805,14 +791,10 @@ class PmImgCreator:
                         % (self.imgtarget)
                        )
 
-        # for each src file, convert and format
-        i = 0
-        for fn in fns:
+        for i, fn in enumerate(fns):
 
             # get img string for this file
             img = imgs[i]
-            i += 1
-
             # print all bytes
             fileBuff.append("\n\n/* %s */" % fn)
             j = 0
@@ -835,8 +817,7 @@ class PmImgCreator:
         native functions and a function table.
         """
         # create intro
-        fileBuff = []
-        fileBuff.append("#undef __FILE_ID__\n"
+        fileBuff = [("#undef __FILE_ID__\n"
                         "#define __FILE_ID__ 0x0A\n"
                         "/**\n"
                         " * PyMite %s native function file\n"
@@ -850,24 +831,25 @@ class PmImgCreator:
                         " * @file    %s\n"
                         " */\n\n"
                         "#define __IN_LIBNATIVE_C__\n"
-                        "#include \"pm.h\"\n\n"
-                        % (self.imgtarget,
+                        "#include \"pm.h\"\n\n" % (self.imgtarget,
                            time.ctime(time.time()),
                            self.nativeFilename
-                          )
-                       )
-
+                          ))]
         # module-level native sections (for #include headers)
-        for (modname, modstr) in self.nativemods:
-            fileBuff.append("/* From: %s */%s\n" % (modname, modstr))
+        fileBuff.extend(
+            "/* From: %s */%s\n" % (modname, modstr)
+            for (modname, modstr) in self.nativemods
+        )
 
         # for each entry create fxn
-        for (funcname, funcstr) in self.nativetable:
-            fileBuff.append("PmReturn_t\n"
-                            "%s(pPmFrame_t *ppframe)\n"
-                            "{\n"
-                            "%s\n"
-                            "}\n\n" % (funcname, funcstr))
+        fileBuff.extend(
+            "PmReturn_t\n"
+            "%s(pPmFrame_t *ppframe)\n"
+            "{\n"
+            "%s\n"
+            "}\n\n" % (funcname, funcstr)
+            for (funcname, funcstr) in self.nativetable
+        )
 
         # create fxn table
         fileBuff.append("/* Native function lookup table */\n"
@@ -875,8 +857,10 @@ class PmImgCreator:
                         "{\n" % NATIVE_TABLE_NAME[self.imgtarget])
 
         # put all native funcs in the table
-        for (funcname, funcstr) in self.nativetable:
-            fileBuff.append("    %s,\n" % funcname)
+        fileBuff.extend(
+            "    %s,\n" % funcname for (funcname, funcstr) in self.nativetable
+        )
+
         fileBuff.append("};\n")
 
         return string.join(fileBuff, "")

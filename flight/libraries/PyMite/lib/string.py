@@ -252,10 +252,8 @@ def join(s, sep=' '):
     if len_s == 0:
         return ''
     rs = s[0]
-    i = 1
-    while i < len_s:
+    for i in range(1, len_s):
         rs = rs + sep + s[i]
-        i += 1
     return rs
 
 

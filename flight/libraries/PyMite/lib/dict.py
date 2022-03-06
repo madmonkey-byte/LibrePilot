@@ -84,10 +84,7 @@ def keys(d):
 
 
 def has_key(d, k):
-    if k in keys(d):
-        return 1
-    else:
-        return 0
+    return 1 if k in keys(d) else 0
 
 
 def values(d):

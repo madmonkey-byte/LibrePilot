@@ -78,9 +78,7 @@ def od_decode(odvalue):
 
 
 def to_int(s):
-    if s.startswith("0x"):
-        return int(s, 16)
-    return int(s)
+    return int(s, 16) if s.startswith("0x") else int(s)
 
 
 def main():

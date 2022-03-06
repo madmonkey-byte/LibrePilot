@@ -400,12 +400,8 @@ def map(f, s):
     # Allocate the array
     r = [None,] * len(s)
 
-    # Call function f once with each argument in sequence s
-    i = 0
-    for a in s:
+    for i, a in enumerate(s):
         r[i] = f(a)
-        i += 1
-
     # Return list of results
     return r
 

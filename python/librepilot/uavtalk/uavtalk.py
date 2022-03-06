@@ -280,10 +280,7 @@ class UavTalk(object):
         self._sendpacket(TYPE_ACK, obj.objId)
         
     def sendObject(self, obj, reqAck = False):
-        if reqAck:
-            type = TYPE_OBJ_ACK
-        else:
-            type = TYPE_OBJ
+        type = TYPE_OBJ_ACK if reqAck else TYPE_OBJ
         self._sendpacket(type, obj.objId, obj.serialize())
                 
     def _sendpacket(self, obj_type, obj_id, data=None):
